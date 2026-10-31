@@ -181,4 +181,118 @@ class DatabaseHelper {
     'CREATE INDEX idx_attendance_student ON attendance(student_id, attendance_status)',
     'CREATE INDEX idx_attendance_lecture ON attendance(lecture_id)',
   ];
+
+    /// Task 3: inserts 1 user+instructor, 2 students, 1 subject, 1 section,
+  /// 2 enrollments, 1 lecture. Idempotent: does nothing if data exists.
+  Future<void> seedSampleData() async {
+    final Database db = await database;
+
+    final int existing = Sqflite.firstIntValue(
+          await db.rawQuery('SELECT COUNT(*) FROM users'),
+        ) ??
+        0;
+    if (existing > 0) return;
+
+    // One transaction: either everything is inserted or nothing is.
+    await db.transaction((txn) async {
+      final int userId = await txn.insert('users', {
+        'username': 'khaled',
+        'password_hash': 'placeholder_hash', // real hashing comes later
+        'full_name': 'Dr. Khaled Al-Ali',
+        'email': 'khaled@example.com',
+        'user_type': 'instructor',
+      });
+
+      final int instructorId = await txn.insert('instructors', {
+        'user_id': userId,
+        'employee_number': 'E001',
+        'specialization': 'Mobile Development',
+      });
+
+      final int student1 = await txn.insert('students', {
+        'student_number': '2026001',
+        'full_name': 'أحمد محمد',
+        'email': 'ahmad@example.com',
+        'phone': '0911111111',
+        'department': 'Informatics Engineering',
+        'enrollment_year': 2023,
+      });
+
+      final int student2 = await txn.insert('students', {
+        'student_number': '2026002',
+        'full_name': 'سارة علي',
+        'email': 'sara@example.com',
+        'phone': '0922222222',
+        'department': 'Informatics Engineering',
+        'enrollment_year': 2023,
+      });
+
+      final int subjectId = await txn.insert('subjects', {
+        'subject_code': 'MAP101',
+        'subject_name': 'Mobile Programming',
+        'credit_hours': 3,
+        'department': 'Informatics Engineering',
+      });
+
+      final int sectionId = await txn.insert('sections', {
+        'subject_id': subjectId,
+        'instructor_id': instructorId,
+        'section_number': '1',
+        'semester': 'First',
+        'academic_year': '2026-2027',
+      });
+
+      // Enroll both students (status defaults to 'active').
+      await txn.insert('enrollments',
+          {'student_id': student1, 'section_id': sectionId});
+      await txn.insert('enrollments',
+          {'student_id': student2, 'section_id': sectionId});
+
+      await txn.insert('lectures', {
+        'section_id': sectionId,
+        'lecture_date': '2026-11-02',
+        'start_time': '09:00',
+        'end_time': '10:30',
+        'topic': 'Introduction to Flutter',
+      });
+    });
+  }
+
+  /// Task 4: records one student's attendance for one lecture.
+  /// Throws StateError if the lecture is missing/cancelled (FR22) or the
+  /// student is not actively enrolled in the lecture's section.
+  /// A second call for the same pair throws a DatabaseException because of
+  /// UNIQUE(lecture_id, student_id) (FR26).
+  Future<int> recordAttendance({
+    required int lectureId,
+    required int studentId,
+    required String status, // 'present' | 'absent' | 'late' | 'excused'
+    int? recordedBy,
+    String? notes,
+  }) async {
+    final Database db = await database;
+
+    final lecture = await db.query('lectures',
+        columns: ['section_id', 'status'],
+        where: 'id = ?',
+        whereArgs: [lectureId]);
+    if (lecture.isEmpty || lecture.first['status'] == 'cancelled') {
+      throw StateError('Lecture does not exist or was cancelled.');
+    }
+
+    final enrolled = await db.query('enrollments',
+        where: 'student_id = ? AND section_id = ? AND status = ?',
+        whereArgs: [studentId, lecture.first['section_id'], 'active']);
+    if (enrolled.isEmpty) {
+      throw StateError('Student is not enrolled in this lecture\'s section.');
+    }
+
+    return db.insert('attendance', {
+      'lecture_id': lectureId,
+      'student_id': studentId,
+      'attendance_status': status,
+      'recorded_by': recordedBy,
+      'notes': notes,
+    });
+  }
 }
