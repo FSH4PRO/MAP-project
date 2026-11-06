@@ -50,3 +50,4 @@ app.*.map.json
 
 # other stuff
 login_and_permissions.zip
+login_and_permissions/
