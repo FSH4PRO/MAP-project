@@ -242,9 +242,9 @@ class DatabaseHelper {
     final Database db = await database;
     return db.rawQuery('''
       SELECT sec.id, sub.subject_code, sub.subject_name,
-             sec.section_number, sec.semester, sec.academic_year,
-             (SELECT COUNT(*) FROM enrollments e
-               WHERE e.section_id = sec.id AND e.status = 'active') AS enrolled
+            sec.section_number, sec.semester, sec.academic_year,
+            (SELECT COUNT(*) FROM enrollments e
+              WHERE e.section_id = sec.id AND e.status = 'active') AS enrolled
       FROM sections sec
       JOIN subjects sub ON sub.id = sec.subject_id
       ORDER BY sec.id DESC
@@ -274,8 +274,8 @@ class DatabaseHelper {
   Future<List<Map<String, Object?>>> getLectures() async {
     final Database db = await database;
     return db.rawQuery('''
-      SELECT l.id, l.lecture_date, l.start_time, l.end_time, l.topic,
-             l.status, sub.subject_code, sec.section_number
+      SELECT l.id, l.section_id, l.lecture_date, l.start_time, l.end_time, l.topic,
+        l.status, sub.subject_code, sec.section_number
       FROM lectures l
       JOIN sections sec ON sec.id = l.section_id
       JOIN subjects sub ON sub.id = sec.subject_id
@@ -326,5 +326,21 @@ class DatabaseHelper {
         }
       }
     });
+  }
+
+
+    /// Read-only view: one row per saved attendance record.
+  Future<List<Map<String, Object?>>> getAttendanceRecords() async {
+    final Database db = await database;
+    return db.rawQuery('''
+      SELECT s.student_number, s.full_name, sub.subject_code,
+        l.lecture_date, l.start_time, a.attendance_status
+      FROM attendance a
+      JOIN students s ON s.id = a.student_id
+      JOIN lectures l ON l.id = a.lecture_id
+      JOIN sections sec ON sec.id = l.section_id
+      JOIN subjects sub ON sub.id = sec.subject_id
+      ORDER BY s.full_name, l.lecture_date, l.start_time
+    ''');
   }
 }
