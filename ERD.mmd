@@ -1,0 +1,93 @@
+erDiagram
+    %% Relationships (parent ||--o{ child means one parent, zero or many children)
+    users ||--o| instructors : "has profile"
+    users |o--o{ attendance : "recorded_by"
+    subjects ||--o{ sections : "offered as"
+    instructors ||--o{ sections : "teaches"
+    students ||--o{ enrollments : "enrolls"
+    sections ||--o{ enrollments : "has"
+    sections ||--o{ lectures : "schedules"
+    lectures ||--o{ attendance : "has"
+    students ||--o{ attendance : "attends"
+
+    users {
+        INTEGER id PK "AUTOINCREMENT"
+        TEXT username UK "NOT NULL"
+        TEXT password_hash "NOT NULL"
+        TEXT full_name "NOT NULL"
+        TEXT email
+        TEXT user_type "admin/registrar/instructor/supervisor"
+        INTEGER is_active "DEFAULT 1"
+        TEXT created_at "DEFAULT CURRENT_TIMESTAMP"
+    }
+
+    students {
+        INTEGER id PK "AUTOINCREMENT"
+        TEXT student_number UK "NOT NULL, idx_students_number"
+        TEXT full_name "NOT NULL"
+        TEXT email
+        TEXT phone
+        TEXT department
+        INTEGER enrollment_year
+        INTEGER is_active "DEFAULT 1"
+        TEXT created_at "DEFAULT CURRENT_TIMESTAMP"
+    }
+
+    instructors {
+        INTEGER id PK "AUTOINCREMENT"
+        INTEGER user_id FK, UK "NOT NULL, ON DELETE RESTRICT"
+        TEXT employee_number UK
+        TEXT specialization
+    }
+
+    subjects {
+        INTEGER id PK "AUTOINCREMENT"
+        TEXT subject_code UK "NOT NULL, idx_subjects_code"
+        TEXT subject_name "NOT NULL"
+        INTEGER credit_hours "DEFAULT 1"
+        TEXT department
+        INTEGER is_active "DEFAULT 1"
+    }
+
+    sections {
+        INTEGER id PK "AUTOINCREMENT"
+        INTEGER subject_id FK "NOT NULL, ON DELETE RESTRICT"
+        INTEGER instructor_id FK "NOT NULL, idx_sections_instructor"
+        TEXT section_number "NOT NULL"
+        TEXT semester "NOT NULL"
+        TEXT academic_year "NOT NULL"
+    }
+
+    enrollments {
+        INTEGER id PK "AUTOINCREMENT"
+        INTEGER student_id FK "NOT NULL, ON DELETE RESTRICT"
+        INTEGER section_id FK "NOT NULL, idx_enrollments_section"
+        TEXT enrolled_at "DEFAULT CURRENT_TIMESTAMP"
+        TEXT status "active/withdrawn"
+    }
+
+    lectures {
+        INTEGER id PK "AUTOINCREMENT"
+        INTEGER section_id FK "NOT NULL, idx_lectures_section_date"
+        TEXT lecture_date "NOT NULL"
+        TEXT start_time "NOT NULL"
+        TEXT end_time "NOT NULL"
+        TEXT topic
+        TEXT status "scheduled/completed/cancelled"
+        TEXT created_at "DEFAULT CURRENT_TIMESTAMP"
+    }
+
+    attendance {
+        INTEGER id PK "AUTOINCREMENT"
+        INTEGER lecture_id FK "NOT NULL, idx_attendance_lecture"
+        INTEGER student_id FK "NOT NULL, idx_attendance_student"
+        TEXT attendance_status "present/absent/late/excused"
+        TEXT notes
+        INTEGER recorded_by FK "nullable, ON DELETE SET NULL"
+        TEXT recorded_at "DEFAULT CURRENT_TIMESTAMP"
+    }
+
+    %% Composite UNIQUE constraints (not expressible in Mermaid):
+    %% sections: UNIQUE (subject_id, section_number, semester, academic_year)
+    %% enrollments: UNIQUE (student_id, section_id)
+    %% attendance: UNIQUE (lecture_id, student_id)

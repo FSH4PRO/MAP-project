@@ -181,118 +181,150 @@ class DatabaseHelper {
     'CREATE INDEX idx_attendance_student ON attendance(student_id, attendance_status)',
     'CREATE INDEX idx_attendance_lecture ON attendance(lecture_id)',
   ];
+  // =====================================================================
+  // Simple data-access methods used by the UI
+  // =====================================================================
 
-    /// Task 3: inserts 1 user+instructor, 2 students, 1 subject, 1 section,
-  /// 2 enrollments, 1 lecture. Idempotent: does nothing if data exists.
-  Future<void> seedSampleData() async {
+  // ---- Students ----
+  Future<int> insertStudent(String number, String name) async {
     final Database db = await database;
+    return db.insert('students', {'student_number': number, 'full_name': name});
+  }
 
-    final int existing = Sqflite.firstIntValue(
-          await db.rawQuery('SELECT COUNT(*) FROM users'),
-        ) ??
-        0;
-    if (existing > 0) return;
+  Future<List<Map<String, Object?>>> getStudents() async {
+    final Database db = await database;
+    return db.query('students', orderBy: 'id DESC');
+  }
 
-    // One transaction: either everything is inserted or nothing is.
-    await db.transaction((txn) async {
-      final int userId = await txn.insert('users', {
-        'username': 'khaled',
-        'password_hash': 'placeholder_hash', // real hashing comes later
-        'full_name': 'Dr. Khaled Al-Ali',
-        'email': 'khaled@example.com',
-        'user_type': 'instructor',
-      });
+  // ---- Subjects ----
+  Future<int> insertSubject(String code, String name) async {
+    final Database db = await database;
+    return db.insert('subjects', {'subject_code': code, 'subject_name': name});
+  }
 
-      final int instructorId = await txn.insert('instructors', {
-        'user_id': userId,
-        'employee_number': 'E001',
-        'specialization': 'Mobile Development',
-      });
+  Future<List<Map<String, Object?>>> getSubjects() async {
+    final Database db = await database;
+    return db.query('subjects', orderBy: 'id DESC');
+  }
 
-      final int student1 = await txn.insert('students', {
-        'student_number': '2026001',
-        'full_name': 'أحمد محمد',
-        'email': 'ahmad@example.com',
-        'phone': '0911111111',
-        'department': 'Informatics Engineering',
-        'enrollment_year': 2023,
-      });
+  // ---- Sections ----
+  // sections.instructor_id is NOT NULL. For this simple version we reuse the
+  // first instructor and create one default instructor if none exists.
+  Future<int> _ensureInstructorId(DatabaseExecutor db) async {
+    final rows = await db.query('instructors', columns: ['id'], limit: 1);
+    if (rows.isNotEmpty) return rows.first['id'] as int;
 
-      final int student2 = await txn.insert('students', {
-        'student_number': '2026002',
-        'full_name': 'سارة علي',
-        'email': 'sara@example.com',
-        'phone': '0922222222',
-        'department': 'Informatics Engineering',
-        'enrollment_year': 2023,
-      });
+    final int userId = await db.insert('users', {
+      'username': 'default_instructor',
+      'password_hash': 'placeholder_hash', // real hashing comes later
+      'full_name': 'Default Instructor',
+      'user_type': 'instructor',
+    });
+    return db.insert('instructors', {'user_id': userId});
+  }
 
-      final int subjectId = await txn.insert('subjects', {
-        'subject_code': 'MAP101',
-        'subject_name': 'Mobile Programming',
-        'credit_hours': 3,
-        'department': 'Informatics Engineering',
-      });
-
-      final int sectionId = await txn.insert('sections', {
+  Future<int> insertSection(
+      int subjectId, String number, String semester, String year) async {
+    final Database db = await database;
+    return db.transaction((txn) async {
+      final int instructorId = await _ensureInstructorId(txn);
+      return txn.insert('sections', {
         'subject_id': subjectId,
         'instructor_id': instructorId,
-        'section_number': '1',
-        'semester': 'First',
-        'academic_year': '2026-2027',
-      });
-
-      // Enroll both students (status defaults to 'active').
-      await txn.insert('enrollments',
-          {'student_id': student1, 'section_id': sectionId});
-      await txn.insert('enrollments',
-          {'student_id': student2, 'section_id': sectionId});
-
-      await txn.insert('lectures', {
-        'section_id': sectionId,
-        'lecture_date': '2026-11-02',
-        'start_time': '09:00',
-        'end_time': '10:30',
-        'topic': 'Introduction to Flutter',
+        'section_number': number,
+        'semester': semester,
+        'academic_year': year,
       });
     });
   }
 
-  /// Task 4: records one student's attendance for one lecture.
-  /// Throws StateError if the lecture is missing/cancelled (FR22) or the
-  /// student is not actively enrolled in the lecture's section.
-  /// A second call for the same pair throws a DatabaseException because of
-  /// UNIQUE(lecture_id, student_id) (FR26).
-  Future<int> recordAttendance({
-    required int lectureId,
-    required int studentId,
-    required String status, // 'present' | 'absent' | 'late' | 'excused'
-    int? recordedBy,
-    String? notes,
-  }) async {
+  Future<List<Map<String, Object?>>> getSections() async {
     final Database db = await database;
+    return db.rawQuery('''
+      SELECT sec.id, sub.subject_code, sub.subject_name,
+             sec.section_number, sec.semester, sec.academic_year,
+             (SELECT COUNT(*) FROM enrollments e
+               WHERE e.section_id = sec.id AND e.status = 'active') AS enrolled
+      FROM sections sec
+      JOIN subjects sub ON sub.id = sec.subject_id
+      ORDER BY sec.id DESC
+    ''');
+  }
 
-    final lecture = await db.query('lectures',
-        columns: ['section_id', 'status'],
-        where: 'id = ?',
-        whereArgs: [lectureId]);
-    if (lecture.isEmpty || lecture.first['status'] == 'cancelled') {
-      throw StateError('Lecture does not exist or was cancelled.');
-    }
+  // ---- Enrollments ----
+  Future<int> enrollStudent(int studentId, int sectionId) async {
+    final Database db = await database;
+    return db.insert(
+        'enrollments', {'student_id': studentId, 'section_id': sectionId});
+  }
 
-    final enrolled = await db.query('enrollments',
-        where: 'student_id = ? AND section_id = ? AND status = ?',
-        whereArgs: [studentId, lecture.first['section_id'], 'active']);
-    if (enrolled.isEmpty) {
-      throw StateError('Student is not enrolled in this lecture\'s section.');
-    }
+  // ---- Lectures ----
+  Future<int> insertLecture(int sectionId, String date, String start,
+      String end, String topic) async {
+    final Database db = await database;
+    return db.insert('lectures', {
+      'section_id': sectionId,
+      'lecture_date': date,
+      'start_time': start,
+      'end_time': end,
+      'topic': topic.isEmpty ? null : topic,
+    });
+  }
 
-    return db.insert('attendance', {
-      'lecture_id': lectureId,
-      'student_id': studentId,
-      'attendance_status': status,
-      'recorded_by': recordedBy,
-      'notes': notes,
+  Future<List<Map<String, Object?>>> getLectures() async {
+    final Database db = await database;
+    return db.rawQuery('''
+      SELECT l.id, l.lecture_date, l.start_time, l.end_time, l.topic,
+             l.status, sub.subject_code, sec.section_number
+      FROM lectures l
+      JOIN sections sec ON sec.id = l.section_id
+      JOIN subjects sub ON sub.id = sec.subject_id
+      ORDER BY l.lecture_date DESC, l.start_time DESC
+    ''');
+  }
+
+  // ---- Attendance ----
+  /// Active students of the lecture's section, with their saved status
+  /// (attendance_status is null if nothing was recorded yet).
+  Future<List<Map<String, Object?>>> getLectureStudents(int lectureId) async {
+    final Database db = await database;
+    return db.rawQuery('''
+      SELECT s.id, s.student_number, s.full_name, a.attendance_status
+      FROM lectures l
+      JOIN enrollments e ON e.section_id = l.section_id AND e.status = 'active'
+      JOIN students s ON s.id = e.student_id
+      LEFT JOIN attendance a ON a.lecture_id = l.id AND a.student_id = s.id
+      WHERE l.id = ?
+      ORDER BY s.full_name
+    ''', [lectureId]);
+  }
+
+  /// Saves {studentId: status} for one lecture in a single transaction.
+  /// Update first; insert only if no row existed. This keeps the UNIQUE
+  /// (lecture_id, student_id) rule and avoids ConflictAlgorithm.replace.
+  Future<void> saveAttendance(int lectureId, Map<int, String> statuses) async {
+    final Database db = await database;
+    await db.transaction((txn) async {
+      final lecture = await txn.query('lectures',
+          columns: ['status'], where: 'id = ?', whereArgs: [lectureId]);
+      if (lecture.isEmpty || lecture.first['status'] == 'cancelled') {
+        throw StateError('Lecture does not exist or was cancelled.');
+      }
+      for (final entry in statuses.entries) {
+        final int updated = await txn.update(
+          'attendance',
+          {'attendance_status': entry.value},
+          where: 'lecture_id = ? AND student_id = ?',
+          whereArgs: [lectureId, entry.key],
+        );
+        if (updated == 0) {
+          await txn.insert('attendance', {
+            'lecture_id': lectureId,
+            'student_id': entry.key,
+            'attendance_status': entry.value,
+          });
+        }
+      }
     });
   }
 }
