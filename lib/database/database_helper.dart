@@ -4,8 +4,14 @@ import 'package:sqflite/sqflite.dart';
 /// Singleton that owns the SQLite connection and creates the 8-table schema.
 /// DAOs obtain the connection through `DatabaseHelper.instance.database`.
 class DatabaseHelper {
-  DatabaseHelper._internal();
+  DatabaseHelper._internal() : _inMemory = false;
   static final DatabaseHelper instance = DatabaseHelper._internal();
+
+  /// Test-only: a fresh in-memory database with the full schema.
+  /// Each call returns an independent helper, so tests never share state.
+  DatabaseHelper.forTesting() : _inMemory = true;
+
+  final bool _inMemory;
 
   static const String _dbName = 'attendance_system.db';
   static const int _dbVersion = 1;
@@ -17,12 +23,18 @@ class DatabaseHelper {
   Future<Database> get database => _dbFuture ??= _open();
 
   Future<Database> _open() async {
-    final String path = join(await getDatabasesPath(), _dbName);
+    // inMemoryDatabasePath (':memory:') needs no file and no path lookup.
+    final String path = _inMemory
+        ? inMemoryDatabasePath
+        : join(await getDatabasesPath(), _dbName);
     return openDatabase(
       path,
       version: _dbVersion,
       onConfigure: _onConfigure,
       onCreate: _onCreate,
+      // sqflite caches connections by path; without this, every ':memory:'
+      // open would share one cached instance across tests.
+      singleInstance: !_inMemory,
     );
   }
 
@@ -342,5 +354,13 @@ class DatabaseHelper {
       JOIN subjects sub ON sub.id = sec.subject_id
       ORDER BY s.full_name, l.lecture_date, l.start_time
     ''');
+  }
+
+  /// Runs [action] inside one SQLite transaction. If [action] throws,
+  /// every write it made is rolled back. Returns whatever [action] returns.
+  Future<T> runInTransaction<T>(
+      Future<T> Function(Transaction txn) action) async {
+    final Database db = await database;
+    return db.transaction(action);
   }
 }
