@@ -87,7 +87,7 @@ class _UsersListScreenState extends State<UsersListScreen> {
         child: ListView.separated(
           padding: const EdgeInsets.all(AppConstants.pagePadding),
           itemCount: provider.users.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 8),
+          separatorBuilder: (_, _) => const SizedBox(height: 8),
           itemBuilder: (_, i) {
             final u = provider.users[i];
             final isMe = u.id == myId;

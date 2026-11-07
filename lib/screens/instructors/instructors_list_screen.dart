@@ -62,7 +62,7 @@ class _InstructorsListScreenState extends State<InstructorsListScreen> {
         child: ListView.separated(
           padding: const EdgeInsets.all(AppConstants.pagePadding),
           itemCount: provider.items.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 8),
+          separatorBuilder: (_, _) => const SizedBox(height: 8),
           itemBuilder: (_, i) => _InstructorTile(
             info: provider.items[i],
             onTap: canManage

@@ -16,14 +16,11 @@ class InstructorService {
   InstructorService({
     required UserDao userDao,
     required InstructorDao instructorDao,
-    required DatabaseHelper db,
-    required SessionContext session,
-    PasswordHasher hasher = const PasswordHasher(),
+    required this._db,
+    required this._session,
+    this._hasher = const PasswordHasher(),
   }) : _users = userDao,
-       _instructors = instructorDao,
-       _db = db,
-       _session = session,
-       _hasher = hasher;
+      _instructors = instructorDao;
 
   final UserDao _users;
   final InstructorDao _instructors;

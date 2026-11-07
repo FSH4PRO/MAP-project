@@ -45,13 +45,10 @@ class UserUniqueness {
 class UserService {
   UserService({
     required UserDao userDao,
-    required DatabaseHelper db,
-    required SessionContext session,
-    PasswordHasher hasher = const PasswordHasher(),
-  }) : _users = userDao,
-       _db = db,
-       _session = session,
-       _hasher = hasher;
+    required this._db,
+    required this._session,
+    this._hasher = const PasswordHasher(),
+  }) : _users = userDao;
 
   final UserDao _users;
   final DatabaseHelper _db;
