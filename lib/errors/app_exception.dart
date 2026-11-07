@@ -30,8 +30,17 @@ final class DatabaseFailure extends AppException {
   const DatabaseFailure(super.message);
 }
 
+/// Text the UI may show for any error: Arabic message of an [AppException],
+/// otherwise a generic one (never SQL or stack traces).
+String userMessage(Object error) =>
+    error is AppException ? error.message : 'حدث خطأ غير متوقع';
+
 /// Converts low-level sqflite errors into [AppException]s.
 class DbErrors {
+  /// True for a UNIQUE violation, so a service can raise a specific message.
+  static bool isUnique(Object error) =>
+      error is DatabaseException && error.isUniqueConstraintError();
+
   static AppException translate(Object error) {
     if (error is AppException) return error;
     if (error is DatabaseException) {
