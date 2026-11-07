@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:crypto/crypto.dart';
 
+import '../config/app_config.dart';
 import '../database/database_helper.dart';
 import '../database/instructor_dao.dart';
 import '../database/user_dao.dart';
@@ -15,7 +16,7 @@ import 'user_rules.dart';
 /// Stored format: iterations$salt$hash (salt, hash = base64).
 /// hash_0 = SHA256(salt || pwd); hash_i = SHA256(hash_{i-1} || pwd).
 class PasswordHasher {
-  const PasswordHasher({this.iterations = 10000});
+  const PasswordHasher({this.iterations = AppConfig.passwordHashIterations});
   final int iterations;
 
   /// Upper bound so a tampered DB value cannot freeze the app.

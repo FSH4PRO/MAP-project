@@ -3,6 +3,7 @@ class UserRules {
   static const minPasswordLength = 6;
   static const minUsernameLength = 3;
   static const maxUsernameLength = 30;
+  static const maxEmployeeNumberLength = 30;
 
   static String? fullName(String? v) =>
       (v == null || v.trim().isEmpty) ? 'الاسم الكامل مطلوب' : null;
@@ -23,6 +24,33 @@ class UserRules {
       return 'كلمة المرور $minPasswordLength أحرف على الأقل';
     }
     return null;
+  }
+
+  /// Optional field: empty is valid. Needs one @ with text around it and a
+  /// dot after it; no spaces.
+  static String? email(String? v) {
+    final s = v?.trim() ?? '';
+    if (s.isEmpty) return null;
+    if (!RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(s)) {
+      return 'البريد الإلكتروني غير صالح';
+    }
+    return null;
+  }
+
+  /// Optional field: empty is valid.
+  static String? employeeNumber(String? v) {
+    final s = v?.trim() ?? '';
+    if (s.length > maxEmployeeNumberLength) {
+      return 'رقم الموظف طويل جداً (الحد $maxEmployeeNumberLength)';
+    }
+    return null;
+  }
+
+  /// Trims; blank becomes null so optional UNIQUE columns store NULL, not ''.
+  /// (SQLite allows many NULLs in a UNIQUE column, but only one '').
+  static String? blankToNull(String? v) {
+    final s = v?.trim() ?? '';
+    return s.isEmpty ? null : s;
   }
 
   static String? confirm(String? password, String? confirm) =>
