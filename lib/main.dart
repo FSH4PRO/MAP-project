@@ -20,12 +20,13 @@ import 'services/user_service.dart';
 import 'theme/app_theme.dart';
 import 'utils/app_strings.dart';
 
-void main() {
+Future<void> main() async{
   WidgetsFlutterBinding.ensureInitialized();
-  initDatabaseFactory(); // web needs the ffi factory; mobile does nothing
+  initDatabaseFactory();
 
-  // One object graph for the whole app: DB -> DAOs -> services -> providers.
   final db = DatabaseHelper.instance;
+  await db.resetDatabase(); // comment this line after first startup !!!!
+  // One object graph for the whole app: DB -> DAOs -> services -> providers.
   final session = SessionContext();
   final userDao = UserDao(db);
   final instructorDao = InstructorDao(db);
