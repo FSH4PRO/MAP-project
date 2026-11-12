@@ -25,7 +25,7 @@ Future<void> main() async{
   initDatabaseFactory();
 
   final db = DatabaseHelper.instance;
-  await db.resetDatabase(); // comment this line after first startup !!!!
+  // await db.resetDatabase(); // uncomment this line if startup page didn't show up !!!!
   // One object graph for the whole app: DB -> DAOs -> services -> providers.
   final session = SessionContext();
   final userDao = UserDao(db);
