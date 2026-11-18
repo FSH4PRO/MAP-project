@@ -1,11 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../models/student.dart';
 import '../screens/auth/change_password_screen.dart';
 import '../screens/auth/first_run_setup_screen.dart';
 import '../screens/auth/login_screen.dart';
 import '../screens/instructors/add_instructor_screen.dart';
 import '../screens/instructors/instructors_list_screen.dart';
+import '../screens/students/add_student_screen.dart';
+import '../screens/students/student_details_screen.dart';
+import '../screens/students/students_list_screen.dart';
+import '../screens/subjects/add_subject_screen.dart';
+import '../screens/subjects/subjects_list_screen.dart';
 import '../screens/users/add_user_screen.dart';
 import '../screens/users/users_list_screen.dart';
 import '../services/session_context.dart';
@@ -93,26 +99,31 @@ class AppRoutes {
       (_) => const AddInstructorScreen(),
     ),
 
-    // ---- Placeholders: teammates replace the builder, keep the permission.
     students: _RouteDef.requires(
       Permission.viewStudents,
-      _placeholder(AppStrings.students),
+      (_) => const StudentsListScreen(),
     ),
     addStudent: _RouteDef.requires(
       Permission.manageStudents,
-      _placeholder('إضافة طالب'),
+      (_) => const AddStudentScreen(),
     ),
     studentDetails: _RouteDef.requires(
       Permission.viewStudents,
-      _placeholder('بيانات الطالب'),
+      (context) {
+        final args = ModalRoute.of(context)?.settings.arguments;
+        if (args is Student) {
+          return StudentDetailsScreen(student: args);
+        }
+        return const _PlaceholderScreen('بيانات الطالب');
+      },
     ),
     subjects: _RouteDef.requires(
       Permission.manageSubjects,
-      _placeholder(AppStrings.subjects),
+      (_) => const SubjectsListScreen(),
     ),
     addSubject: _RouteDef.requires(
       Permission.manageSubjects,
-      _placeholder('إضافة مادة'),
+      (_) => const AddSubjectScreen(),
     ),
     sections: _RouteDef.requires(
       Permission.manageSections,

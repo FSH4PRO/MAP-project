@@ -7,15 +7,21 @@ import 'config/app_routes.dart';
 import 'database/database_helper.dart';
 import 'database/db_platform.dart';
 import 'database/instructor_dao.dart';
+import 'database/student_dao.dart';
+import 'database/subject_dao.dart';
 import 'database/user_dao.dart';
 import 'providers/auth_provider.dart';
 import 'providers/instructor_provider.dart';
+import 'providers/student_provider.dart';
+import 'providers/subject_provider.dart';
 import 'providers/user_provider.dart';
 import 'screens/auth/first_run_setup_screen.dart';
 import 'screens/auth/login_screen.dart';
 import 'services/auth_service.dart';
 import 'services/instructor_service.dart';
 import 'services/session_context.dart';
+import 'services/student_service.dart';
+import 'services/subject_service.dart';
 import 'services/user_service.dart';
 import 'theme/app_theme.dart';
 import 'utils/app_strings.dart';
@@ -30,6 +36,8 @@ Future<void> main() async{
   final session = SessionContext();
   final userDao = UserDao(db);
   final instructorDao = InstructorDao(db);
+  final studentDao = StudentDao(db);
+  final subjectDao = SubjectDao(db);
 
   final authService = AuthService(
     userDao: userDao,
@@ -41,6 +49,16 @@ Future<void> main() async{
   final instructorService = InstructorService(
     userDao: userDao,
     instructorDao: instructorDao,
+    db: db,
+    session: session,
+  );
+  final studentService = StudentService(
+    studentDao: studentDao,
+    db: db,
+    session: session,
+  );
+  final subjectService = SubjectService(
+    subjectDao: subjectDao,
     db: db,
     session: session,
   );
@@ -60,6 +78,8 @@ Future<void> main() async{
         ChangeNotifierProvider(
           create: (_) => InstructorProvider(instructorService),
         ),
+        ChangeNotifierProvider(create: (_) => StudentProvider(studentService)),
+        ChangeNotifierProvider(create: (_) => SubjectProvider(subjectService)),
         // TEAM: register your providers here (students, lectures, attendance).
       ],
       child: AttendanceApp(session: session),
